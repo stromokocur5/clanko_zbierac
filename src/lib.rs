@@ -14,3 +14,7 @@ pub fn config_from_file() -> Result<Config> {
     let config: Config = toml::from_str(&config)?;
     Ok(config)
 }
+
+pub fn markdown_to_pdf(content: &str) -> Result<()> {
+    todo!()
+}

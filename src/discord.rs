@@ -35,6 +35,3 @@ pub fn html_to_markdown(content: &str) -> Result<String> {
         .trim_end()
         .to_string())
 }
-pub fn markdown_to_pdf(content: &str) -> Result<()> {
-    todo!()
-}

@@ -4,33 +4,44 @@ use reqwest_cookie_store::{CookieStore, CookieStoreMutex};
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let config = config_from_file()?;
     let cookie_store = CookieStore::new(None);
     let cookie_store = CookieStoreMutex::new(cookie_store);
     let cookie_store = std::sync::Arc::new(cookie_store);
     let client = reqwest::ClientBuilder::new()
-        .user_agent("Mozilla/5.0 (X11; Linux x86_64; rv:121.0) Gecko/20100101 Firefox/121.0")
         .cookie_store(true)
         .cookie_provider(std::sync::Arc::clone(&cookie_store))
         .build()
         .unwrap();
-    let config = config_from_file()?;
     let csrf_token = get_csrf_token(&client).await?;
     let user = User {
-        _username: config._username,
-        _password: config._password,
+        _username: config.trend.username,
+        _password: config.trend.password,
         _csrf_token: csrf_token,
     };
     login(&client, user).await?;
 
-    let test = get_article(&client,reqwest::Url::parse("https://www.trend.sk/biznis/tesla-nestiha-drzat-krok-tronu-mladom-trhu-coskoro-ujme-novy-lider-ciny?itm_brand=trend&itm_template=listing&itm_modul=articles-rubric-list&itm_position=6")?).await?;
+    let test = get_article(&client,reqwest::Url::parse("https://trend.sk/biznis/tesla-nestiha-drzat-krok-tronu-mladom-trhu-coskoro-ujme-novy-lider-ciny?itm_brand=trend&itm_template=listing&itm_modul=articles-rubric-list&itm_position=6")?).await?;
     println!("{test}");
     Ok(())
 }
 
 #[derive(serde::Deserialize)]
 struct Config {
-    _username: String,
-    _password: String,
+    trend: Trend,
+    discord: Discord,
+}
+
+#[derive(serde::Deserialize)]
+struct Trend {
+    username: String,
+    password: String,
+}
+
+#[derive(serde::Deserialize)]
+struct Discord {
+    token: String,
+    channel_id: String,
 }
 
 #[derive(serde::Serialize)]

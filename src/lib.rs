@@ -1,4 +1,6 @@
-use anyhow::Result;
+pub use anyhow::Result;
+
+pub mod medium;
 
 pub mod aktuality;
 pub mod dennikn;
@@ -9,10 +11,10 @@ pub mod trend;
 #[derive(serde::Deserialize)]
 pub struct MediaConfig {
     pub trend: trend::Trend,
-    pub sme: sme::Sme,
-    pub dennikn: dennikn::DennikN,
-    pub aktuality: aktuality::Aktuality,
-    pub idnes: idnes::Idnes,
+    pub sme: Option<sme::Sme>,
+    pub dennikn: Option<dennikn::DennikN>,
+    pub aktuality: Option<aktuality::Aktuality>,
+    pub idnes: Option<idnes::Idnes>,
 }
 
 pub fn config_from_file() -> Result<MediaConfig> {

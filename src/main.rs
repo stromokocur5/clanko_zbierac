@@ -1,6 +1,6 @@
 use anyhow::{anyhow, Result};
-use trendbot::config_from_file;
-use trendbot::{discord, trend};
+use clanko_zbierac::config_from_file;
+use clanko_zbierac::{discord, trend};
 
 #[tokio::main]
 async fn main() -> Result<()> {

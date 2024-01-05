@@ -3,6 +3,7 @@ use crate::MediaConfig;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
 use reqwest::Client;
+use scraper::{Html, Selector};
 
 #[derive(serde::Serialize)]
 struct User {
@@ -19,9 +20,10 @@ pub struct Trend {
 
 impl From<MediaConfig> for Trend {
     fn from(config: MediaConfig) -> Self {
+        let trend = config.trend;
         Self {
-            username: config.trend.username,
-            password: config.trend.password,
+            username: trend.username,
+            password: trend.password,
         }
     }
 }
@@ -49,33 +51,43 @@ impl Medium for Trend {
     }
 
     async fn html_to_markdown(content: &str) -> Result<String> {
-        use scraper::{Html, Selector};
         let document = Html::parse_document(content);
-        let mut markdown = String::new();
 
-        let article_title = Selector::parse(r#"h1[data-don="article_title"]"#)
+        let title = Selector::parse(r#"h1[data-don="article_title"]"#)
             .map_err(|_| anyhow!("no article_title"))?;
 
-        let article_author = Selector::parse(r#"div[data-don="article_author"]"#)
+        let author = Selector::parse(r#"div[data-don="article_author"]"#)
             .map_err(|_| anyhow!("no article_author"))?;
 
-        let article_perex = Selector::parse(r#"p[data-don="article_perex"]"#)
+        let perex = Selector::parse(r#"p[data-don="article_perex"]"#)
             .map_err(|_| anyhow!("no article_perex"))?;
 
-        let datetime =
-            Selector::parse(r#"span[class="datetime"]"#).map_err(|_| anyhow!("no daytime"))?;
+        let day_month = Selector::parse(r#"span[class="datetime-day-month"]"#)
+            .map_err(|_| anyhow!("no daytime"))?;
 
-        let article_body = Selector::parse(r#"div[data-don="article_body"]"#)
+        let year =
+            Selector::parse(r#"span[class="datetime-year"]"#).map_err(|_| anyhow!("no daytime"))?;
+
+        let time =
+            Selector::parse(r#"span[class="datetime-time"]"#).map_err(|_| anyhow!("no daytime"))?;
+
+        let body = Selector::parse(r#"div[data-don="article_body"]"#)
             .map_err(|_| anyhow!("no article_body"))?;
 
-        Ok(document
-            .select(&article_title)
-            .next()
-            .unwrap()
-            .inner_html()
-            .trim_start()
-            .trim_end()
-            .to_string())
+        let selectors: Vec<(&Selector, &str)> = vec![
+            (&title, "title"),
+            (&author, "author"),
+            (&day_month, "day_month"),
+            (&year, "year"),
+            (&time, "time"),
+            (&perex, "perex"),
+            (&body, "body"),
+        ];
+        let markdown = Self::handle_article(document.clone(), &selectors)?;
+
+        let markdown = markdown.to_string();
+
+        Ok(markdown)
     }
 }
 impl Trend {
@@ -87,9 +99,10 @@ impl Trend {
             .text()
             .await?;
 
-        let document = scraper::Html::parse_document(&content);
+        let document = Html::parse_document(&content);
 
-        let csrf_selector = scraper::Selector::parse(r#"input[name="_csrf_token"]"#).unwrap();
+        let csrf_selector = Selector::parse(r#"input[name="_csrf_token"]"#)
+            .map_err(|_| anyhow!("nenasiel sa csrf token"))?;
 
         let csrf_element = document
             .select(&csrf_selector)
@@ -100,5 +113,79 @@ impl Trend {
             .attr("value")
             .expect("nepodarilo sa ziskat hodnotu csrf tokenu");
         Ok(csrf_token.to_string())
+    }
+
+    fn handle_article(document: Html, selectors: &Vec<(&Selector, &str)>) -> Result<String> {
+        let mut day_month = String::new();
+        let mut year = String::new();
+        let mut time = String::new();
+        let mut markdown = String::new();
+        for (s, m) in selectors {
+            let part = document.select(s).next();
+            if let None = part {
+                continue;
+            }
+            let orig_part = part.unwrap();
+            let part = orig_part.inner_html();
+            let part = part.trim();
+            let part = match m.to_owned() {
+                "title" => format!("# {part}\n"),
+                "author" => format!("## {part}\n"),
+                "day_month" => {
+                    day_month = part.into();
+                    "".to_string()
+                }
+                "year" => {
+                    year = part.into();
+                    "".to_string()
+                }
+                "time" => {
+                    time = part.into();
+                    format!("## {day_month}{year} {time}\n")
+                }
+                "perex" => {
+                    let text = orig_part.text();
+                    let text = text.last().ok_or_else(|| anyhow!(""))?.trim();
+                    format!("## {}\n", text)
+                }
+                "body" => {
+                    let mut text = String::new();
+                    for i in orig_part.children() {
+                        let value = i.value();
+
+                        let name = value.as_element();
+                        if !value.is_element() {
+                            continue;
+                        }
+                        let name = name.unwrap().name();
+                        if i.has_children() {
+                            for j in i.children() {
+                                let value = j.value();
+                                if !value.is_text() {
+                                    continue;
+                                }
+                                if name == "p" {
+                                    text.push_str(&format!(
+                                        "{}",
+                                        &value.as_text().unwrap().text.trim()
+                                    ))
+                                }
+                                if name == "h2" {
+                                    text.push_str(&format!(
+                                        "\n### {}\n",
+                                        &value.as_text().unwrap().text.trim()
+                                    ))
+                                }
+                            }
+                        }
+                    }
+
+                    format!("{}", text)
+                }
+                _ => format!(""),
+            };
+            markdown.push_str(&part);
+        }
+        Ok(markdown)
     }
 }

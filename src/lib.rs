@@ -1,17 +1,23 @@
 use anyhow::Result;
 
-pub mod discord;
+pub mod aktuality;
+pub mod dennikn;
+pub mod idnes;
+pub mod sme;
 pub mod trend;
 
 #[derive(serde::Deserialize)]
-pub struct Config {
+pub struct MediaConfig {
     pub trend: trend::Trend,
-    pub discord: discord::Discord,
+    pub sme: sme::Sme,
+    pub dennikn: dennikn::DennikN,
+    pub aktuality: aktuality::Aktuality,
+    pub idnes: idnes::Idnes,
 }
 
-pub fn config_from_file() -> Result<Config> {
+pub fn config_from_file() -> Result<MediaConfig> {
     let config = std::fs::read_to_string("config.toml").expect("ziaden subor config.toml");
-    let config: Config = toml::from_str(&config)?;
+    let config: MediaConfig = toml::from_str(&config)?;
     Ok(config)
 }
 

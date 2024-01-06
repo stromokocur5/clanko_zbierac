@@ -1,7 +1,7 @@
 use clanko_zbierac::config_from_file;
 use clanko_zbierac::medium::MediumClient;
 use clanko_zbierac::Result;
-use clap::{command, Parser};
+use clap::{arg, command, Parser};
 use reqwest::Url;
 
 /// Program na ziskanie clanku z medii do pdf suboru
@@ -9,7 +9,6 @@ use reqwest::Url;
 #[command(author, version, about, long_about = None)]
 struct Args {
     /// link na clanok
-    #[arg(short, long)]
     clanok: String,
 }
 

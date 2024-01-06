@@ -10,6 +10,7 @@ pub trait Medium {
     async fn html_to_markdown(&self, content: &str) -> Result<(String, String)>;
 }
 
+#[derive(Clone)]
 pub struct MediumClient {
     client: Client,
     config: MediaConfig,

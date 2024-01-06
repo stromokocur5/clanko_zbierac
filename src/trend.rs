@@ -166,15 +166,17 @@ impl Trend {
                             if value.is_element() {
                                 let name = value.as_element().unwrap();
                                 let name = name.name();
-                                if name != "em" {
-                                    continue;
-                                }
-                                for k in j.children() {
-                                    let value = k.value();
-                                    if !value.is_text() {
-                                        continue;
+                                if name == "em" || name == "p" || name == "a" {
+                                    for k in j.children() {
+                                        let value = k.value();
+                                        if !value.is_text() {
+                                            continue;
+                                        }
+                                        text.push_str(&format!(
+                                            " {}",
+                                            &value.as_text().unwrap().text
+                                        ));
                                     }
-                                    text.push_str(&format!(" {}", &value.as_text().unwrap().text));
                                 }
                             }
                             if !value.is_text() {

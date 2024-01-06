@@ -118,7 +118,6 @@ impl Trend {
     fn handle_article(document: Html, selectors: &Vec<(&Selector, &str)>) -> Result<String> {
         let mut day_month = String::new();
         let mut year = String::new();
-        let mut time = String::new();
         let mut markdown = String::new();
         for (s, m) in selectors {
             let part = document.select(s).next();
@@ -129,8 +128,8 @@ impl Trend {
             let part = orig_part.inner_html();
             let part = part.trim();
             let part = match m.to_owned() {
-                "title" => format!("# {part}\n"),
-                "author" => format!("## {part}\n"),
+                "title" => format!("---\ntitle: {part}\n"),
+                "author" => format!("author: {part}\n"),
                 "day_month" => {
                     day_month = part.into();
                     "".to_string()
@@ -140,13 +139,13 @@ impl Trend {
                     "".to_string()
                 }
                 "time" => {
-                    time = part.into();
-                    format!("## {day_month}{year} {time}\n")
+                    let time = part;
+                    format!("date: {day_month}{year} {time}\n---\n")
                 }
                 "perex" => {
                     let text = orig_part.text();
                     let text = text.last().ok_or_else(|| anyhow!(""))?.trim();
-                    format!("## {}\n", text)
+                    format!("\n# {}\n", text)
                 }
                 "body" => {
                     let mut text = String::new();
@@ -158,24 +157,40 @@ impl Trend {
                             continue;
                         }
                         let name = name.unwrap().name();
-                        if i.has_children() {
-                            for j in i.children() {
-                                let value = j.value();
-                                if !value.is_text() {
+                        if !i.has_children() {
+                            continue;
+                        }
+                        for j in i.children() {
+                            let value = j.value();
+
+                            if value.is_element() {
+                                let name = value.as_element().unwrap();
+                                let name = name.name();
+                                if name != "em" {
                                     continue;
                                 }
-                                if name == "p" {
-                                    text.push_str(&format!(
-                                        "{}",
-                                        &value.as_text().unwrap().text.trim()
-                                    ))
+                                for k in j.children() {
+                                    let value = k.value();
+                                    if !value.is_text() {
+                                        continue;
+                                    }
+                                    text.push_str(&format!(" {}", &value.as_text().unwrap().text));
                                 }
-                                if name == "h2" {
-                                    text.push_str(&format!(
-                                        "\n### {}\n",
-                                        &value.as_text().unwrap().text.trim()
-                                    ))
-                                }
+                            }
+                            if !value.is_text() {
+                                continue;
+                            }
+                            if name == "p" {
+                                text.push_str(&format!(
+                                    "{}",
+                                    &value.as_text().unwrap().text.trim()
+                                ));
+                            }
+                            if name == "h2" {
+                                text.push_str(&format!(
+                                    "\n\n## {}\n",
+                                    &value.as_text().unwrap().text.trim()
+                                ));
                             }
                         }
                     }

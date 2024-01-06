@@ -24,5 +24,10 @@ pub fn config_from_file() -> Result<MediaConfig> {
 }
 
 pub fn markdown_to_pdf(content: &str) -> Result<()> {
-    todo!()
+    std::fs::write("test.md", &content)?;
+    let mut pandoc = pandoc::new();
+    pandoc.add_input("test.md");
+    pandoc.set_output(pandoc::OutputKind::File("test.pdf".into()));
+    pandoc.execute()?;
+    Ok(())
 }

@@ -12,7 +12,7 @@ struct User {
     _password: String,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, Clone)]
 pub struct Trend {
     pub username: String,
     pub password: String,
@@ -20,17 +20,17 @@ pub struct Trend {
 
 impl From<MediaConfig> for Trend {
     fn from(config: MediaConfig) -> Self {
-        let trend = config.trend;
-        Self {
-            username: trend.username,
-            password: trend.password,
-        }
+        let trend = config.trend.unwrap_or_else(|| Self {
+            username: "".to_string(),
+            password: "".to_string(),
+        });
+        trend
     }
 }
 #[async_trait]
 impl Medium for Trend {
-    async fn get_article(client: &Client, url: reqwest::Url) -> Result<String> {
-        let res = client.get(url).send().await?;
+    async fn get_article(&self, client: &Client, url: &reqwest::Url) -> Result<String> {
+        let res = client.get(url.to_owned()).send().await?;
         let res = res.text().await?;
         Ok(res)
     }
@@ -50,7 +50,7 @@ impl Medium for Trend {
         Ok(())
     }
 
-    async fn html_to_markdown(content: &str) -> Result<String> {
+    async fn html_to_markdown(&self, content: &str) -> Result<(String, String)> {
         let document = Html::parse_document(content);
 
         let title = Selector::parse(r#"h1[data-don="article_title"]"#)
@@ -83,11 +83,9 @@ impl Medium for Trend {
             (&perex, "perex"),
             (&body, "body"),
         ];
-        let markdown = Self::handle_article(document.clone(), &selectors)?;
+        let (markdown, title) = Self::handle_article(document.clone(), &selectors)?;
 
-        let markdown = markdown.to_string();
-
-        Ok(markdown)
+        Ok((markdown, title))
     }
 }
 impl Trend {
@@ -115,7 +113,11 @@ impl Trend {
         Ok(csrf_token.to_string())
     }
 
-    fn handle_article(document: Html, selectors: &Vec<(&Selector, &str)>) -> Result<String> {
+    fn handle_article(
+        document: Html,
+        selectors: &Vec<(&Selector, &str)>,
+    ) -> Result<(String, String)> {
+        let mut title = String::new();
         let mut day_month = String::new();
         let mut year = String::new();
         let mut markdown = String::new();
@@ -128,7 +130,10 @@ impl Trend {
             let part = orig_part.inner_html();
             let part = part.trim();
             let part = match m.to_owned() {
-                "title" => format!("---\ntitle: {part}\n"),
+                "title" => {
+                    title = part.to_lowercase().replace(" ", "_");
+                    format!("---\ntitle: {part}\n")
+                }
                 "author" => format!("author: {part}\n"),
                 "day_month" => {
                     day_month = part.into();
@@ -203,6 +208,6 @@ impl Trend {
             };
             markdown.push_str(&part);
         }
-        Ok(markdown)
+        Ok((markdown, title))
     }
 }

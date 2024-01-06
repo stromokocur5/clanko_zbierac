@@ -1,15 +1,24 @@
 use clanko_zbierac::config_from_file;
 use clanko_zbierac::medium::MediumClient;
-use clanko_zbierac::trend::Trend;
 use clanko_zbierac::Result;
+use clap::{command, Parser};
+use reqwest::Url;
+
+/// Program na ziskanie clanku z medii do pdf suboru
+#[derive(Parser, Debug)]
+#[command(author, version, about, long_about = None)]
+struct Args {
+    /// link na clanok
+    #[arg(short, long)]
+    clanok: String,
+}
 
 #[tokio::main]
 async fn main() -> Result<()> {
+    let args = Args::parse();
     let config = config_from_file()?;
-    let client = MediumClient::new().await;
-    let test = client.get_article(Trend::from(config),reqwest::Url::parse("https://trend.sk/biznis/tesla-nestiha-drzat-krok-tronu-mladom-trhu-coskoro-ujme-novy-lider-ciny?itm_brand=trend&itm_template=listing&itm_modul=articles-rubric-list&itm_position=6")?).await?;
-    // let test = client.get_article(Trend::from(config),reqwest::Url::parse("https://www.trend.sk/pravo/treba-vyrobit-skutok-uprostred-debaty-ruseni-usp-prichadzaju-dalsie-odposluchy?itm_brand=trend&itm_template=listing&itm_modul=articles-rubric-list&itm_position=4")?).await?;
-    let x = clanko_zbierac::markdown_to_pdf(&test)?;
-    // println!("{test}");
+    let client = MediumClient::new(config).await;
+    let (article, title) = client.get_article(&Url::parse(&args.clanok)?).await?;
+    clanko_zbierac::markdown_to_pdf(&article, &title)?;
     Ok(())
 }

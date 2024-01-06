@@ -2,6 +2,11 @@
 name = "clanko_zbierac"
 version = "0.1.0"
 edition = "2021"
+authors = ["stromokocur5"]
+description = "Program for scraping slovak/czech articles from medias and turning them to pdfs"
+repository = "https://github.com/stromokocur5/clanko_zbierac"
+license = "MIT"
+keywords = ["scraping","media","news"]
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

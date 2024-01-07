@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use crate::{trend::Trend, MediaConfig, Result};
 use async_trait::async_trait;
 use reqwest::{Client, Url};
@@ -29,19 +31,27 @@ impl MediumClient {
             .unwrap();
         MediumClient { client, config }
     }
-    pub async fn get_article(&self, url: &Url) -> Result<(String, String)> {
-        let mut medium = self.which_medium(&url);
-        if !medium.logged().await {
+    pub async fn get_article<'a>(
+        &self,
+        url: &Url,
+        media: &'a mut HashMap<String, Box<dyn Medium>>,
+    ) -> Result<(String, String)> {
+        let medium: &mut Box<dyn Medium> = self.which_medium(&url, media);
+        if medium.logged().await == false {
             medium.login(&self.client).await?;
         }
         let article = medium.get_article(&self.client, &url).await?;
         let (article, title) = medium.html_to_markdown(&article).await?;
         Ok((article, title))
     }
-    pub fn which_medium(&self, url: &Url) -> Box<dyn Medium + Send> {
+    pub fn which_medium<'a>(
+        &self,
+        url: &Url,
+        media: &'a mut HashMap<String, Box<dyn Medium>>,
+    ) -> &'a mut Box<dyn Medium> {
         let domain = url.domain().unwrap_or_else(|| "");
         match domain {
-            _ => Box::new(Trend::from(self.config.clone())),
+            _ => media.get_mut("trend").unwrap(),
         }
     }
 }

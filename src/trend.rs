@@ -26,15 +26,16 @@ fn logged_default() -> bool {
 
 impl From<MediaConfig> for Trend {
     fn from(config: MediaConfig) -> Self {
-        let trend = config.trend.unwrap_or_else(|| {
-            println!("no config for trend");
-            Self {
-                username: "".to_string(),
-                password: "".to_string(),
-                logged: false,
-            }
-        });
-        trend
+        config.trend.unwrap_or_default()
+    }
+}
+impl Default for Trend {
+    fn default() -> Self {
+        Self {
+            username: "".to_string(),
+            password: "".to_string(),
+            logged: false,
+        }
     }
 }
 #[async_trait]

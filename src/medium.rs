@@ -5,9 +5,10 @@ use reqwest_cookie_store::{CookieStore, CookieStoreMutex};
 
 #[async_trait]
 pub trait Medium {
-    async fn login(&self, client: &Client) -> Result<()>;
+    async fn login(&mut self, client: &Client) -> Result<()>;
     async fn get_article(&self, client: &Client, url: &Url) -> Result<String>;
     async fn html_to_markdown(&self, content: &str) -> Result<(String, String)>;
+    async fn logged(&self) -> bool;
 }
 
 #[derive(Clone)]
@@ -29,8 +30,10 @@ impl MediumClient {
         MediumClient { client, config }
     }
     pub async fn get_article(&self, url: &Url) -> Result<(String, String)> {
-        let medium = self.which_medium(&url);
-        medium.login(&self.client).await?;
+        let mut medium = self.which_medium(&url);
+        if !medium.logged().await {
+            medium.login(&self.client).await?;
+        }
         let article = medium.get_article(&self.client, &url).await?;
         let (article, title) = medium.html_to_markdown(&article).await?;
         Ok((article, title))

@@ -17,13 +17,22 @@ struct User {
 pub struct Trend {
     pub username: String,
     pub password: String,
+    #[serde(default = "logged_default")]
+    pub logged: bool,
+}
+fn logged_default() -> bool {
+    false
 }
 
 impl From<MediaConfig> for Trend {
     fn from(config: MediaConfig) -> Self {
-        let trend = config.trend.unwrap_or_else(|| Self {
-            username: "".to_string(),
-            password: "".to_string(),
+        let trend = config.trend.unwrap_or_else(|| {
+            println!("no config for trend");
+            Self {
+                username: "".to_string(),
+                password: "".to_string(),
+                logged: false,
+            }
         });
         trend
     }
@@ -36,7 +45,7 @@ impl Medium for Trend {
         Ok(res)
     }
 
-    async fn login(&self, client: &Client) -> Result<()> {
+    async fn login(&mut self, client: &Client) -> Result<()> {
         let csrf_token = Self::get_csrf_token(&client).await?;
         let user = User {
             _csrf_token: csrf_token,
@@ -48,6 +57,7 @@ impl Medium for Trend {
             .form(&user)
             .send()
             .await?;
+        self.logged = true;
         Ok(())
     }
 
@@ -87,6 +97,9 @@ impl Medium for Trend {
         let (markdown, title) = Self::handle_article(document.clone(), &selectors)?;
 
         Ok((markdown, title))
+    }
+    async fn logged(&self) -> bool {
+        self.logged.clone()
     }
 }
 impl Trend {

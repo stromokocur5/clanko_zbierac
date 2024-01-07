@@ -1,6 +1,6 @@
 [package]
 name = "clanko_zbierac"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 authors = ["stromokocur5"]
 description = "Program for scraping slovak/czech articles from medias and turning them to pdfs"

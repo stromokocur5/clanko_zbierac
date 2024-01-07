@@ -2,6 +2,7 @@ use crate::medium::Medium;
 use crate::MediaConfig;
 use anyhow::{anyhow, Result};
 use async_trait::async_trait;
+use ego_tree::NodeRef;
 use reqwest::Client;
 use scraper::{Html, Selector};
 
@@ -155,59 +156,48 @@ impl Trend {
                 "body" => {
                     let mut text = String::new();
                     for i in orig_part.children() {
-                        let value = i.value();
-
-                        let name = value.as_element();
-                        if !value.is_element() {
-                            continue;
-                        }
-                        let name = name.unwrap().name();
-                        if !i.has_children() {
-                            continue;
-                        }
-                        for j in i.children() {
-                            let value = j.value();
-
-                            if value.is_element() {
-                                let name = value.as_element().unwrap();
-                                let name = name.name();
-                                if name == "em" || name == "p" || name == "a" {
-                                    for k in j.children() {
-                                        let value = k.value();
-                                        if !value.is_text() {
-                                            continue;
-                                        }
-                                        text.push_str(&format!(
-                                            " {}",
-                                            &value.as_text().unwrap().text
-                                        ));
-                                    }
-                                }
-                            }
-                            if !value.is_text() {
-                                continue;
-                            }
-                            if name == "p" {
-                                text.push_str(&format!(
-                                    "{}",
-                                    &value.as_text().unwrap().text.trim()
-                                ));
-                            }
-                            if name == "h2" {
-                                text.push_str(&format!(
-                                    "\n\n## {}\n",
-                                    &value.as_text().unwrap().text.trim()
-                                ));
-                            }
-                        }
+                        handle_node(i, "", &mut text);
                     }
-
-                    format!("{}", text)
+                    text
                 }
                 _ => format!(""),
             };
             markdown.push_str(&part);
         }
         Ok((markdown, title))
+    }
+}
+
+fn handle_node(node: NodeRef<'_, scraper::Node>, e_name: &str, mut_text: &mut String) {
+    for i in node.children() {
+        let value = i.value();
+
+        if value.is_element() {
+            let mut bad_class = false;
+            let el = value.as_element().unwrap();
+            let classes = el.classes();
+            for i in classes {
+                if i == "article-related" || i == "unlock-subscription" || i == "attribution" {
+                    bad_class = true;
+                    continue;
+                }
+            }
+            if bad_class {
+                continue;
+            }
+            let name = el.name();
+            handle_node(i, name, mut_text);
+        }
+
+        if value.is_text() {
+            let txt = value.as_text().unwrap().text.clone();
+            let txt = match e_name {
+                "h2" | "strong" | "dt" => format!("\n\n## {}\n", txt.trim()),
+                "itm-params" | "figcaption" => "".to_owned(),
+                "dd" => format!("\n{}\n", txt.trim()),
+                _ => format!("{}", txt.trim()),
+            };
+            mut_text.push_str(&txt);
+        }
     }
 }

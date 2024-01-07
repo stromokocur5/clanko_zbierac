@@ -29,13 +29,13 @@ impl MediumClient {
         MediumClient { client, config }
     }
     pub async fn get_article(&self, url: &Url) -> Result<(String, String)> {
-        let medium = self.which_medium(&url).await;
+        let medium = self.which_medium(&url);
         medium.login(&self.client).await?;
         let article = medium.get_article(&self.client, &url).await?;
         let (article, title) = medium.html_to_markdown(&article).await?;
         Ok((article, title))
     }
-    pub async fn which_medium(&self, url: &Url) -> Box<dyn Medium> {
+    pub fn which_medium(&self, url: &Url) -> Box<dyn Medium + Send> {
         let domain = url.domain().unwrap_or_else(|| "");
         match domain {
             _ => Box::new(Trend::from(self.config.clone())),

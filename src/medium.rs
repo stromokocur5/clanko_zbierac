@@ -1,9 +1,10 @@
-use std::collections::HashMap;
-
-use crate::{trend::Trend, MediaConfig, Result};
+use crate::trend::Trend;
+use crate::MediaConfig;
+use crate::Result;
 use async_trait::async_trait;
 use reqwest::{Client, Url};
 use reqwest_cookie_store::{CookieStore, CookieStoreMutex};
+use std::collections::HashMap;
 
 #[async_trait]
 pub trait Medium {
@@ -12,11 +13,12 @@ pub trait Medium {
     async fn html_to_markdown(&self, content: &str) -> Result<(String, String)>;
     async fn logged(&self) -> bool;
 }
+pub type MediaStore = HashMap<String, Box<dyn Medium + Send + Sync>>;
 
-#[derive(Clone)]
 pub struct MediumClient {
     client: Client,
     config: MediaConfig,
+    media: MediaStore,
 }
 
 impl MediumClient {
@@ -29,29 +31,28 @@ impl MediumClient {
             .cookie_provider(std::sync::Arc::clone(&cookie_store))
             .build()
             .unwrap();
-        MediumClient { client, config }
+        let mut media: MediaStore = HashMap::new();
+        media.insert("trend".to_owned(), Box::new(Trend::from(config.clone())));
+        MediumClient {
+            client,
+            config,
+            media,
+        }
     }
-    pub async fn get_article<'a>(
-        &self,
-        url: &Url,
-        media: &'a mut HashMap<String, Box<dyn Medium>>,
-    ) -> Result<(String, String)> {
-        let medium: &mut Box<dyn Medium> = self.which_medium(&url, media);
-        if medium.logged().await == false {
+    pub async fn get_article(&mut self, url: &Url) -> Result<(String, String)> {
+        let medium = Self::which_medium(&url);
+        let medium = self.media.get_mut(medium).unwrap();
+        if !medium.logged().await {
             medium.login(&self.client).await?;
         }
         let article = medium.get_article(&self.client, &url).await?;
         let (article, title) = medium.html_to_markdown(&article).await?;
         Ok((article, title))
     }
-    pub fn which_medium<'a>(
-        &self,
-        url: &Url,
-        media: &'a mut HashMap<String, Box<dyn Medium>>,
-    ) -> &'a mut Box<dyn Medium> {
+    pub fn which_medium(url: &Url) -> &str {
         let domain = url.domain().unwrap_or_else(|| "");
         match domain {
-            _ => media.get_mut("trend").unwrap(),
+            _ => "trend",
         }
     }
 }

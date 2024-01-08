@@ -16,6 +16,17 @@ pub struct MediaConfig {
     pub aktuality: Option<aktuality::Aktuality>,
     pub idnes: Option<idnes::Idnes>,
 }
+impl Default for MediaConfig {
+    fn default() -> Self {
+        Self {
+            trend: None,
+            sme: None,
+            dennikn: None,
+            aktuality: None,
+            idnes: None,
+        }
+    }
+}
 
 pub fn config_from_file() -> Result<MediaConfig> {
     let config = std::fs::read_to_string("config.toml").unwrap_or_default();
